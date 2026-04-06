@@ -1,0 +1,5 @@
+spotipy>=2.23.0
+streamlit>=1.28.0
+python-dotenv>=1.0.0
+google-generativeai>=0.4.0
+mistralai>=1.0.0
