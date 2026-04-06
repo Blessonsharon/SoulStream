@@ -42,9 +42,22 @@ streamlit run app.py
 ```
 
 ## Architecture
+
+```mermaid
+graph TD
+    A[User Input] -->|Text| B[Streamlit UI]
+    B -->|Prompt| C[Gemini Pro API]
+    C -->|Detected Emotion| D[Spotify Recommender]
+    D -->|Search Query| E[Spotify Web API]
+    E -->|Song Metadata| F[Visual Song Cards]
+    F -->|Display| B
 ```
-User Text Input → Streamlit → Gemini Pro Text Evaluation (via google.generativeai) → JSON Output → Spotify API Search → Visual Song Cards
-```
+
+The system follows a reactive flow:
+1.  **User Input**: Receives raw text describing feelings.
+2.  **Emotion Engine**: Uses Google Gemini Pro to identify nuanced emotional states.
+3.  **Spotify Linker**: Maps detected emotions to optimized search queries for the Spotify API.
+4.  **UI Layer**: Renders a premium, glassmorphism-style interface for the final recommendations.
 
 ## Technologies
 - **Google Generative AI** (`gemini-1.5-pro`)
