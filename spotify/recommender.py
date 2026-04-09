@@ -48,7 +48,7 @@ def _get_spotify_client():
     except:
         return None
 
-def get_recommendations(emotion: str, keywords: list = None, favorite_artists: list = None, mentioned_artists: list = None, genre: str = None, limit: int = 10) -> dict:
+def get_recommendations(emotion: str, keywords: list = None, favorite_artists: list = None, mentioned_artists: list = None, genre: str = None, context_text: str = "", limit: int = 10) -> dict:
     # ── Build Search Query ──
     # Priority: Mentioned Artists > Favorite Artists
     priority_artists = mentioned_artists if mentioned_artists else favorite_artists
@@ -67,7 +67,7 @@ def get_recommendations(emotion: str, keywords: list = None, favorite_artists: l
 
     # Combine everything
     # Example: artist:"The Weeknd" artist:"Drake" genre:"Pop" late night melancholy sad
-    final_query = f"{artist_query} {genre_query} {keyword_str} {emotion}".strip()
+    final_query = f"{artist_query} {genre_query} {keyword_str} {context_text} {emotion}".strip()
     
     # Fallback if final query is empty (unlikely)
     if not final_query:

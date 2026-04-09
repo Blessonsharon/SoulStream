@@ -1,12 +1,12 @@
-# 🎵 Mood-Based Music Recommender (Powered by Gemini)
+# 🎵 SoulStream (Powered by Gemini)
 
-A smart Generative AI project that detects user emotion from text input using the **Google Gemini Pro API** and recommends corresponding songs from Spotify based on that mood.
+A premium Generative AI music recommender that detects your mood via **Facial Expression Analysis** and recommends corresponding songs from Spotify based on your vibe.
 
 ## Features
-- **Generative AI Emotion Detection** — Leverages Google's `gemini-1.5-pro` model to accurately classify text nuances into 4 core emotions: Happy, Sad, Angry, Neutral.
-- **Spotify Integration** — Fetches real song recommendations via Spotify Web API mapping exact feelings to tailored queries.
-- **Streamlit UI** — Beautiful, dark-themed, glassmorphism web interface giving you a vibrant look at your emotion breakdown.
-- **Micro-Second Response Time** — Because this project utilizes an API offloading complex computations, the result prediction returns almost instantaneously compared to local training environments.
+- **Facial Emotion Detection** — Uses Gemini 1.5 Flash Vision to analyze your expressions in real-time.
+- **Smart Text Fallback** — Can't use the camera? Just type how you feel.
+- **Artist & Genre Preferences** — Persistently remember your favorite artists and genres throughout your session.
+- **Streamlit UI** — Beautiful, dark-themed, glassmorphism web interface.
 
 ## Setup
 

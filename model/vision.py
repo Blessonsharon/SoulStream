@@ -1,6 +1,7 @@
 import os
 import json
 import google.generativeai as genai
+from PIL import Image
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -13,41 +14,48 @@ if api_key:
 EMOTION_EMOJIS = {"happy": "😊", "sad": "😢", "angry": "😠", "neutral": "😐"}
 EMOTION_COLORS = {"happy": "#FFD700", "sad": "#4A90D9", "angry": "#E74C3C", "neutral": "#95A5A6"}
 
-def predict_emotion(text: str) -> dict:
-    if not text or not text.strip():
-        return {"emotion": None, "confidence": 0.0, "emoji": "❓", "color": "#666666", "all_scores": {}, "error": "Please enter text."}
-    
-    if not api_key:
-        return {"emotion": None, "confidence": 0.0, "emoji": "❓", "color": "#666666", "all_scores": {}, "error": "GEMINI_API_KEY is missing from your .env file."}
-
-    prompt = f"""
-    Analyze the following text and determine:
-    1. The primary emotion (EXACTLY one of: 'happy', 'sad', 'angry', 'neutral').
-    2. 2-3 specific "musical keywords" (e.g., "upbeat", "late night", "synth-pop").
-    3. A list of any "mentioned artists" (e.g., "The Weeknd", "Drake").
-    4. A breakdown of scores for all four emotions.
-
-    Output ONLY valid JSON matching this schema:
-    {{
-        "emotion": "sad",
-        "musical_keywords": ["melancholy", "r&b", "lonely"],
-        "mentioned_artists": ["The Weeknd"],
-        "all_scores": {{
-            "happy": 0.01,
-            "sad": 0.95,
-            "angry": 0.02,
-            "neutral": 0.02
-        }}
-    }}
-
-    Text to analyze: "{text}"
+def analyze_face(image_input) -> dict:
     """
+    Analyzes a facial expression from an image using Gemini 1.5 Flash.
+    image_input can be a PIL Image or bytes.
+    """
+    if not api_key:
+        return {"error": "GEMINI_API_KEY is missing from your .env file."}
 
     try:
+        # Load the model
         model = genai.GenerativeModel('gemini-flash-latest')
-        response = model.generate_content(prompt)
+        
+        # Prepare the image
+        if not isinstance(image_input, Image.Image):
+            img = Image.open(image_input)
+        else:
+            img = image_input
+
+        prompt = """
+        Analyze the facial expression of the person in this image and determine:
+        1. The primary emotion (EXACTLY one of: 'happy', 'sad', 'angry', 'neutral').
+        2. 2-3 specific "musical keywords" based on their expression (e.g., "upbeat", "late night", "melancholy").
+        3. A breakdown of scores (probabilities) for all four emotions.
+
+        Output ONLY valid JSON matching this schema:
+        {
+            "emotion": "happy",
+            "musical_keywords": ["upbeat", "energetic"],
+            "all_scores": {
+                "happy": 0.9,
+                "sad": 0.02,
+                "angry": 0.03,
+                "neutral": 0.05
+            },
+            "reasoning": "Brief explanation of why this emotion was chosen."
+        }
+        """
+
+        response = model.generate_content([prompt, img])
         
         # Parse JSON output
+        # Handle cases where the model might wrap JSON in backticks
         resp_text = response.text.strip()
         if resp_text.startswith("```json"):
             resp_text = resp_text.replace("```json", "", 1).replace("```", "", 1).strip()
@@ -66,11 +74,12 @@ def predict_emotion(text: str) -> dict:
         return {
             "emotion": predicted_emotion,
             "musical_keywords": data.get("musical_keywords", []),
-            "mentioned_artists": data.get("mentioned_artists", []),
             "confidence": confidence,
             "emoji": EMOTION_EMOJIS.get(predicted_emotion, "🤔"),
             "color": EMOTION_COLORS.get(predicted_emotion, "#666666"),
             "all_scores": all_scores,
+            "reasoning": data.get("reasoning", "")
         }
+
     except Exception as e:
-        return {"emotion": None, "confidence": 0.0, "emoji": "❓", "color": "#666666", "all_scores": {}, "error": f"Gemini API Error: {str(e)}"}
+        return {"error": f"Gemini Vision Error: {str(e)}"}
