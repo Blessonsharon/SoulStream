@@ -61,7 +61,7 @@ with st.sidebar:
     target_artists = st.multiselect(
         "Focus on these artists:",
         ["The Weeknd", "Drake", "Taylor Swift", "Billie Eilish", "Dua Lipa", "Travis Scott", "Eminem", "Kendrick Lamar", "Adele"],
-        default=["The Weeknd"]
+        default=[]
     )
     
     st.markdown("---")
@@ -256,7 +256,6 @@ analysis_mode = st.radio(
     options=[
         "🎭 Mood Mirror (Facial Emotion)",
         "📸 Instagram Story Vibe (Whole Image Analysis)",
-        "🏙️ Landmark Locator (Identify Famous Places)"
     ],
     index=0
 )
@@ -336,29 +335,15 @@ if predict_source:
                 if "Story Vibe" in analysis_mode:
                     from model.story_vibe import analyze_story_vibe
                     result = analyze_story_vibe(img_file)
-                elif "Landmark" in analysis_mode:
-                    from model.landmark_detector import recognize_landmark
-                    with st.spinner("🏙️ Scanning for world landmarks via AI..."):
-                        landmark_info = recognize_landmark(img_file)
-                    if not landmark_info.get("detected"):
-                        # Fall back to story vibe if landmark not recognized
-                        from model.story_vibe import analyze_story_vibe
-                        result = analyze_story_vibe(img_file)
-                    else:
-                        # Use a neutral aesthetic emotion as base, genre will be overridden
-                        result = {
-                            "emotion": "aesthetic",
-                            "musical_keywords": landmark_info["genre"].split(),
-                            "mentioned_artists": [],
-                            "confidence": landmark_info["confidence"] / 100,
-                            "emoji": "🏙️",
-                            "color": "#e1306c",
-                            "all_scores": {"aesthetic": landmark_info["confidence"] / 100},
-                            "reasoning": f"Landmark detected: {landmark_info['landmark']}, {landmark_info['country']}"
-                        }
-                        itunes_country = landmark_info.get("itunes_country", itunes_country)
                 else:
                     result = analyze_face(img_file)
+
+                # Passive landmark detection — always runs silently on every image
+                try:
+                    from model.landmark_detector import recognize_landmark
+                    landmark_info = recognize_landmark(img_file)
+                except Exception:
+                    landmark_info = {"detected": False}
             else:
                 result = predict_emotion(user_text)
 
