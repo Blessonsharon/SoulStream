@@ -8,6 +8,14 @@ import sys
 import os
 from PIL import Image
 
+# Load tsParticles local library for offline background effects
+try:
+    with open("tsparticles.min.js", "r", encoding="utf-8") as f:
+        tsparticles_js = f.read()
+except Exception:
+    tsparticles_js = "" # Fallback
+
+
 # Add project root to path
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -71,7 +79,7 @@ with st.sidebar:
     # ─── Location / Language ───
     st.markdown("---")
     st.markdown("### 🌍 Music Region")
-    st.caption("Select your region to get music in your local language. Auto-detected from photo GPS when available.")
+    st.caption("Select your region to get music in your local language.")
     REGION_OPTIONS = {
         "🌐 Global (English)": "us",
         "🇮🇳 India (Hindi/Regional)": "in",
@@ -111,133 +119,218 @@ with st.sidebar:
     if st.button("🎨 Browse Genres"):
         show_genre_dialog()
 
-# ─── Custom CSS ────────────────────────────────────────────
-st.markdown("""
+# ─── Header UI & Particle logic ─────────────────────────────
+# This block handles both CSS and the particle background injection.
+ui_html = """
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap');
 
+    /* Global Streamlit Overrides */
     .stApp {
-        background: linear-gradient(135deg, #090716 0%, #110e2d 40%, #1a1738 100%);
+        background: transparent !important;
         font-family: 'Outfit', sans-serif;
     }
 
+    /* THEMED SIDEBAR */
+    [data-testid="stSidebar"] {
+        background-color: #0b0d1a !important;
+        border-right: 1px solid rgba(255, 255, 255, 0.08) !important;
+    }
+    
+    [data-testid="stSidebar"] * {
+        color: #f0f0f0 !important;
+    }
+
+    /* Fixed Particle Background Container */
+    #tsparticles {
+        position: fixed;
+        width: 100%;
+        height: 100%;
+        top: 0;
+        left: 0;
+        z-index: -1;
+        pointer-events: none;
+        background: #050505;
+        background-image: radial-gradient(circle at 50% 50%, #110e2d 0%, #050505 100%);
+    }
+
+    /* Content Layout */
     .main .block-container {
         padding-top: 2rem;
         max-width: 800px;
+        position: relative;
+        z-index: 1;
     }
 
+    /* High Visibility Typography */
+    h1, h2, h3, h4, h5, h6, p, span, label, div {
+        color: #e8e8e8 !important;
+    }
+    
     .hero-header {
         text-align: center;
-        padding: 2rem 0 1rem 0;
+        padding: 3rem 0 2rem 0;
     }
 
     .hero-header h1 {
-        font-size: 3.5rem;
+        font-size: 4.5rem;
         font-weight: 800;
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
         -webkit-background-clip: text;
         -webkit-text-fill-color: transparent;
         background-clip: text;
         margin-bottom: 0px;
-        letter-spacing: -1px;
+        letter-spacing: -3px;
+        filter: drop-shadow(0 0 15px rgba(240, 147, 251, 0.3));
     }
 
     .hero-header p {
-        color: #8b8fa3;
-        font-size: 1.1rem;
+        color: #a8adc0 !important;
+        font-size: 1.2rem;
         font-weight: 300;
-        margin-top: 5px;
+        margin-top: 8px;
+        letter-spacing: 1px;
     }
 
+    /* Premium Glassmorphism Cards */
     .glass-card {
-        background: rgba(255, 255, 255, 0.04);
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        border-radius: 20px;
-        padding: 2rem;
-        margin: 1.5rem 0;
+        background: rgba(20, 20, 35, 0.7) !important;
+        border: 1px solid rgba(255, 255, 255, 0.1) !important;
+        border-radius: 28px;
+        padding: 2.5rem;
+        margin: 2rem 0;
         backdrop-filter: blur(20px);
         -webkit-backdrop-filter: blur(20px);
+        box-shadow: 0 15px 45px rgba(0, 0, 0, 0.5);
     }
 
-    .emotion-result {
-        text-align: center;
-        padding: 2rem;
-        border-radius: 20px;
-        margin: 1.5rem 0;
-        animation: fadeInUp 0.6s ease-out;
+    /* Drag and Drop Pulse Effect */
+    [data-testid="stFileUploadDropzone"] {
+        border: 2px dashed rgba(245, 87, 108, 0.3) !important;
+        transition: all 0.3s ease-in-out !important;
+        background: rgba(255, 255, 255, 0.02) !important;
+    }
+    
+    [data-testid="stFileUploadDropzone"]:hover,
+    [data-testid="stFileUploadDropzone"]:focus-within {
+        border: 2px dashed #f5576c !important;
+        background: rgba(245, 87, 108, 0.08) !important;
+        transform: scale(1.01);
+        animation: pulse-glow 2s infinite;
     }
 
-    @keyframes fadeInUp {
-        from { opacity: 0; transform: translateY(30px); }
-        to { opacity: 1; transform: translateY(0); }
+    @keyframes pulse-glow {
+        0% { box-shadow: 0 0 5px rgba(245, 87, 108, 0.2); }
+        50% { box-shadow: 0 0 25px rgba(245, 87, 108, 0.5); }
+        100% { box-shadow: 0 0 5px rgba(245, 87, 108, 0.2); }
     }
 
-    .emotion-emoji {
-        font-size: 5rem;
-        display: block;
-        margin-bottom: 0.5rem;
-        filter: drop-shadow(0 0 10px rgba(255,255,255,0.2));
+    /* Analysis Mode Radio Fix */
+    div[role="radiogroup"] label {
+        background: rgba(255, 255, 255, 0.03) !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 12px !important;
+        padding: 10px 15px !important;
+        margin-bottom: 8px !important;
+        transition: 0.3s;
+    }
+    
+    div[role="radiogroup"] label:hover {
+        background: rgba(255, 255, 255, 0.08) !important;
     }
 
-    .emotion-label {
-        font-size: 2rem;
-        font-weight: 800;
-        text-transform: uppercase;
-        letter-spacing: 5px;
-        margin: 0.5rem 0;
-    }
-
+    /* Tabs Styling */
     .stTabs [data-baseweb="tab-list"] {
-        gap: 10px;
+        gap: 15px;
         background-color: transparent;
     }
 
     .stTabs [data-baseweb="tab"] {
-        height: 45px;
-        background-color: rgba(255,255,255,0.05);
-        border-radius: 10px;
-        color: white;
-        padding: 0 20px;
-        transition: all 0.3s;
+        height: 50px;
+        background-color: rgba(255, 255, 255, 0.04);
+        border: 1px solid rgba(255, 255, 255, 0.06);
+        border-radius: 16px;
+        color: #ffffff !important;
+        padding: 0 28px;
+        font-weight: 600;
+        transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
     }
 
     .stTabs [aria-selected="true"] {
-        background-color: rgba(255,255,255,0.15) !important;
-        border-bottom-color: #f5576c !important;
+        background: linear-gradient(135deg, rgba(240, 147, 251, 0.2) 0%, rgba(245, 87, 108, 0.2) 100%) !important;
+        border: 1px solid #f5576c !important;
+        transform: translateY(-2px);
     }
 
-    /* Input styling */
-    .stTextInput input, .stTextArea textarea {
-        background: rgba(255, 255, 255, 0.05) !important;
+    /* Inputs & Buttons */
+    .stTextInput input, .stTextArea textarea, .stSelectbox [data-baseweb="select"] {
+        background: rgba(0, 0, 0, 0.4) !important;
         border: 1px solid rgba(255, 255, 255, 0.1) !important;
-        border-radius: 12px !important;
+        border-radius: 16px !important;
         color: white !important;
+        padding: 12px !important;
     }
 
-    /* Rebranding colors */
     .stButton > button {
         background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%) !important;
         border: none !important;
-        border-radius: 12px !important;
-        font-weight: 700 !important;
-        height: 50px !important;
+        border-radius: 16px !important;
+        color: white !important;
+        font-weight: 800 !important;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        height: 58px !important;
+        box-shadow: 0 8px 25px rgba(245, 87, 108, 0.3);
+        transition: 0.3s all;
     }
-
-    .song-card {
-        background: rgba(255, 255, 255, 0.03);
-        border: 1px solid rgba(255, 255, 255, 0.06);
-        border-radius: 15px;
-        padding: 1rem;
-        margin-bottom: 0.8rem;
-        transition: 0.3s;
-    }
-
-    .song-card:hover {
-        background: rgba(255, 255, 255, 0.08);
+    
+    .stButton > button:hover {
         transform: scale(1.02);
+        box-shadow: 0 12px 30px rgba(245, 87, 108, 0.5);
+        color: white !important;
     }
 </style>
-""", unsafe_allow_html=True)
+
+<div id="tsparticles"></div>
+
+<script>
+    // CORE LIBRARY INSERTION
+    LIBRARY_PLACEHOLDER
+</script>
+
+<script>
+    // CONFIG & INITIALIZATION
+    if (!window.tsParticlesStarted) {
+        tsParticles.load("tsparticles", {
+            "particles": {
+                "number": { "value": 90, "density": { "enable": true, "area": 800 } },
+                "color": { "value": ["#f093fb", "#f5576c"] },
+                "shape": { "type": "circle" },
+                "opacity": { "value": 0.6, "random": true },
+                "size": { "value": { "min": 1, "max": 4 }, "random": true },
+                "links": { "enable": true, "distance": 150, "color": "#f093fb", "opacity": 0.35, "width": 1.5 },
+                "move": { "enable": true, "speed": 1.8, "direction": "none", "random": true, "straight": false, "outModes": "out" }
+            },
+            "interactivity": {
+                "detectsOn": "window",
+                "events": { 
+                    "onHover": { "enable": true, "mode": ["repulse", "grab"], "parallax": { "enable": true, "force": 60, "smooth": 15 } }, 
+                    "resize": true 
+                },
+                "modes": { 
+                    "repulse": { "distance": 180, "duration": 0.4 },
+                    "grab": { "distance": 250, "links": { "opacity": 0.6 } }
+                }
+            },
+            "retina_detect": true,
+            "fpsLimit": 60
+        });
+        window.tsParticlesStarted = true;
+    }
+</script>
+"""
+
+st.markdown(ui_html.replace("LIBRARY_PLACEHOLDER", tsparticles_js or ""), unsafe_allow_html=True)
 
 # ─── Header ───────────────────────────────────────────────
 st.markdown("""
@@ -322,11 +415,7 @@ if predict_source:
             if img_file is not None:
                 location_info = detect_location(img_file)
                 if location_info.get("detected"):
-                    # GPS auto-detected — override manual selection
                     itunes_country = location_info.get("itunes_country", manual_itunes_country)
-                else:
-                    # No GPS in photo — use manual region silently
-                    location_info["detected"] = False
 
             result = None
             landmark_info = {"detected": False}
@@ -338,7 +427,6 @@ if predict_source:
                 else:
                     result = analyze_face(img_file)
 
-                # Passive landmark detection — always runs silently on every image
                 try:
                     from model.landmark_detector import recognize_landmark
                     landmark_info = recognize_landmark(img_file)
@@ -356,52 +444,29 @@ if predict_source:
                 confidence = result["confidence"]
                 emoji = result["emoji"]
                 color = result["color"]
-                all_scores = result["all_scores"]
                 reasoning = result.get("reasoning", "")
 
                 # ── Emotion Result Card ──
                 st.markdown(f"""
-                <div class="emotion-result glass-card" style="border-right: 10px solid {color}; border-left: 10px solid {color};">
-                    <span class="emotion-emoji">{emoji}</span>
-                    <div class="emotion-label" style="color: {color};">{emotion}</div>
-                    <p style="color: #a8adc0; font-style: italic;">"{reasoning or 'Detected based on your input'}"</p>
+                <div class="emotion-result glass-card" style="border-right: 12px solid {color}; border-left: 12px solid {color}; text-align: center;">
+                    <span style="font-size: 5rem; display: block;">{emoji}</span>
+                    <h2 style="color: {color}; text-transform: uppercase; letter-spacing: 4px; margin: 1rem 0;">{emotion}</h2>
+                    <p style="color: #a8adc0; font-style: italic; font-size: 1.1rem;">"{reasoning or 'Detected based on your input'}"</p>
                 </div>
                 """, unsafe_allow_html=True)
 
                 # ── Location Intelligence Card ──
                 if location_info.get("detected"):
-                    loc_col1, loc_col2 = st.columns([1, 3])
-                    with loc_col1:
-                        if location_info.get("wiki_image"):
-                            st.image(location_info["wiki_image"], caption=location_info.get("city", ""), width='stretch')
-                    with loc_col2:
-                        st.markdown(f"""
-                        <div class="glass-card" style="padding:1rem;">
-                            <h4 style="margin:0;color:#e1306c;">{location_info.get('flag','')} Location Detected</h4>
-                            <p style="color:#fff;font-size:1.1rem;margin:0.3rem 0;"><b>{location_info.get('city','')}, {location_info.get('country_code','')}</b></p>
-                            <p style="color:#a8adc0;margin:0;">Language: {location_info.get('language','Local')} &nbsp;|&nbsp; Routing iTunes to <b>{location_info.get('country_code','').upper()}</b> storefront</p>
-                        </div>
-                        """, unsafe_allow_html=True)
-
-                # ── Landmark Card ──
-                if landmark_info.get("detected"):
                     st.markdown(f"""
-                    <div class="glass-card" style="border-left: 6px solid #e1306c; padding: 1.2rem;">
-                        <h4 style="margin:0 0 0.4rem 0; color:#e1306c;">🏙️ Landmark Identified</h4>
-                        <p style="color:#fff; font-size:1.15rem; margin:0;"><b>{landmark_info['landmark']}</b></p>
-                        <p style="color:#a8adc0; margin:0.3rem 0 0 0;">
-                            🌍 {landmark_info['country']} &nbsp;•&nbsp;
-                            🗣️ Language: <b>{landmark_info['language']}</b> &nbsp;•&nbsp;
-                            🎧 Genre: <b>{landmark_info['genre']}</b>
-                        </p>
-                        <p style="color:#666; font-size:0.8rem; margin:0.4rem 0 0 0;">AI Confidence: {landmark_info['confidence']}% • iTunes routed to {landmark_info['code'].upper()} storefront</p>
+                    <div class="glass-card" style="padding: 1.5rem; border-left: 8px solid #f093fb;">
+                        <h4 style="margin:0; color:#f093fb;">🌍 Location Detected</h4>
+                        <p style="color:#ffffff; font-size:1.2rem; margin:0.5rem 0;"><b>{location_info.get('city', 'Unknown City')}, {location_info.get('country_code', '').upper()}</b></p>
+                        <p style="color:#a8adc0; margin:0;">Mapping music results to the local storefront...</p>
                     </div>
                     """, unsafe_allow_html=True)
 
                 # ── Recommendations ──
                 st.markdown("### 🎧 Soul-Matched Tracks")
-                
-                # Merge vibe preferences
                 personal_context = f"{vibe_pref} {st.session_state.get('selected_genre', '')}".strip()
                 
                 recs = get_recommendations(
@@ -411,31 +476,32 @@ if predict_source:
                     favorite_artists=target_artists,
                     mentioned_artists=mentioned_artists,
                     genre=st.session_state.get('selected_genre'),
-                    context_text=personal_context, # Passing our new persistent vibe
+                    context_text=personal_context,
                     limit=10
                 )
 
                 if recs.get("songs"):
                     for song in recs["songs"]:
                         add_artist(song.get("artist", ""))
-                        
-                        with st.container():
-                            col1, col2 = st.columns([1, 4], vertical_alignment="center")
-                            with col1:
-                                if song.get("image"): 
-                                    st.image(song["image"], width='stretch')
-                            with col2:
-                                st.markdown(f"**{song['name']}**")
-                                st.markdown(f"<span style='color: #a8adc0; font-size: 0.9rem;'>{song['artist']}</span>", unsafe_allow_html=True)
-                                
-                                # Native HTML5 Audio Player (iTunes Preview stream)
-                                if song.get("preview"):
-                                    st.audio(song["preview"], format="audio/mp4")
-                                
-                                # Always provide the outbound link to the official full track!
-                                if song.get("url") and song["url"] != "#":
-                                    st.link_button("🎵 Play Full Song on Apple Music", song["url"])
-                        st.markdown("---")
+                        with st.container(border=False):
+                            st.markdown(f"""
+                            <div class="glass-card" style="margin: 0.5rem 0; padding: 1rem; background: rgba(255,255,255,0.02) !important;">
+                                <div style="display: flex; align-items: center; gap: 20px;">
+                                    <img src="{song.get('image')}" style="width: 80px; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.4);">
+                                    <div>
+                                        <div style="font-weight: 800; font-size: 1.1rem; color:#fff;">{song['name']}</div>
+                                        <div style="color: #f093fb; font-size: 0.9rem; margin-bottom: 8px;">{song['artist']}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            
+                            if song.get("preview"):
+                                st.audio(song["preview"], format="audio/mp4")
+                            
+                            if song.get("url") and song["url"] != "#":
+                                st.link_button(f"🎵 Open in Apple Music", song["url"], use_container_width=True)
+                        st.markdown("<br>", unsafe_allow_html=True)
                 else:
                     st.info("No network connection or songs found for this vibe. Try adjusting your preferences!")
 
@@ -444,7 +510,7 @@ if predict_source:
 
 # Footer
 st.markdown("""
-<div style="text-align: center; color: #4a4e60; font-size: 0.8rem; padding: 2rem;">
-    SoulStream • Built with offline ML models & Spotify API
+<div style="text-align: center; color: #4a4e60; font-size: 0.8rem; padding: 4rem 1rem 2rem 1rem;">
+    SoulStream • Built with offline ML models & Apple Music API • v2.0
 </div>
 """, unsafe_allow_html=True)
